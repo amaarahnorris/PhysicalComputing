@@ -1,0 +1,217 @@
+#include <SPI.h>
+#include <RFID.h>
+#include <LiquidCrystal_I2C.h>
+
+
+#define SS_PIN 10
+#define RST_PIN 9
+
+LiquidCrystal_I2C lcd(0x3F, 16, 2);
+
+RFID rfid(10, 9);  //D10:pin of tag reader SDA. D9:pin of tag reader RST
+unsigned char status;
+unsigned char str[MAX_LEN];  //MAX_LEN is 16: size of the array
+
+
+String accessGrantedGreen[4] = { "880448103" };     //RFID serial numbers to grant access to
+int accessGrantedGreenSize = 4;                                                           //The number of serial numbers that can activate Green LED
+String accessGrantedBlue[4] = { "880485103" };  //RFID serial numbers to grant access to
+int accessGrantedBlueSize = 4;                                                            //The number of serial numbers that can activate Blue LED
+String accessGrantedRed[4] = { "8804411104"};  //RFID serial numbers to grant access to
+int accessGrantedRedSize = 4;                                                             //The number of serial numbers that can activate Red LED
+String accessGrantedYellow[4] = { "880489104"};    //RFID serial numbers to grant access to
+int accessGrantedYellowSize = 4;                                                          //The number of serial numbers that can activate Yellow LED
+String accessGrantedWhite[4] = { "88041315109" };  //RFID serial numbers to grant access to
+int accessGrantedWhiteSize = 4;                                                           //The number of serial numbers that can activate White LED
+int val;                                                                                  // variable to read the value from the analog pin
+
+boolean locked = true;
+//The LEDs are yet to be added to the circuit 
+//int redLEDPin = 5;    // red LED is on pin 5
+//int greenLEDPin = 6;  // greeen LED is on pin 6
+//int blueLEDPin = 4;   // blue LED is on pin 4
+//int whiteLEDPin = 7;  // white LED is on pin 7
+
+
+
+void setup() {
+  Serial.begin(9600);               //Serial monitor is only required to get tag ID numbers and for troubleshooting
+  SPI.begin();                      //Start SPI communication with reader
+  rfid.init();                      //initialization
+  pinMode(redLEDPin, OUTPUT);       //LED test sequence
+  pinMode(greenLEDPin, OUTPUT);     //LED test sequence
+  pinMode(blueLEDPin, OUTPUT);      //LED test sequence
+  pinMode(whiteLEDPin, OUTPUT);     //LED test sequence
+  digitalWrite(greenLEDPin, HIGH);  //green LED turns on
+
+  lcd.init();
+
+  // Print a message to the LCD.
+
+  lcd.backlight();
+
+  lcd.setCursor(0, 0);
+
+  lcd.print(" SCAN YOUR CARD");
+
+  Serial.println("Place card/tag near reader...");
+}
+
+void loop() {
+  if (rfid.findCard(PICC_REQIDL, str) == MI_OK)  //Wait for a tag to be placed near the reader
+  {
+    Serial.println("Card found");
+    String temp = "";                 //Temporary variable to store the read RFID number
+    if (rfid.anticoll(str) == MI_OK)  //Anti-collision detection, read tag serial number
+    {
+      Serial.print("The card's ID number is : ");
+      for (int i = 0; i < 4; i++)  //Record and display the tag serial number
+      {
+        temp = temp + (0x0F & (str[i] >> 4));
+        temp = temp + (0x0F & str[i]);
+      }
+      Serial.println(temp);
+      checkAccess(temp);  //Check if the identified tag is an allowed to open tag
+    }
+    rfid.selectTag(str);  //Lock card to prevent a redundant read, removing the line will make the sketch read cards continually
+  }
+  rfid.halt();
+}
+
+void checkAccess(String temp)  //Function to check if an identified tag is registered to allow access
+{
+  boolean granted = false;
+  for (int i = 0; i <= (accessGrantedGreenSize - 1); i++)  //Runs through all tag ID numbers registered in the array
+  {
+    Serial.print("Tag UID:");
+
+    lcd.setCursor(0, 0);
+
+    lcd.print("     PRESTO");
+
+    lcd.setCursor(0, 1);
+
+    if (accessGrantedGreen[i] == temp)  //If a tag is found then open/close the lock
+    {
+      Serial.println("Access Granted Green");
+      granted = true;
+      if (locked == true)  //If the lock is closed then open it
+      {
+        locked = false;
+      } else if (locked == false)  //If the lock is open then close it
+      {
+        locked = true;
+      }
+      digitalWrite(greenLEDPin, HIGH);  //Green LED sequence
+      delay(200);
+      digitalWrite(greenLEDPin, LOW);
+      delay(200);
+      digitalWrite(greenLEDPin, HIGH);
+      delay(200);
+      digitalWrite(greenLEDPin, LOW);
+      delay(200);
+    }
+    for (int i = 0; i <= (accessGrantedBlueSize - 1); i++)  //Runs through all tag ID numbers registered in the array
+    {
+      if (accessGrantedBlue[i] == temp)  //If a tag is found then open/close the lock
+      {
+        Serial.print("Tag UID:");
+
+        lcd.setCursor(0, 0);
+
+        lcd.print("     DEBIT");
+
+        lcd.setCursor(0, 1);
+
+        Serial.println("Access Granted Blue");
+        granted = true;
+        if (locked == true)  //If the lock is closed then open it
+        {
+          locked = false;
+        } else if (locked == false)  //If the lock is open then close it
+        {
+          locked = true;
+        }
+        digitalWrite(blueLEDPin, HIGH);  //Blue LED sequence
+        delay(200);
+        digitalWrite(blueLEDPin, LOW);
+        delay(200);
+        digitalWrite(blueLEDPin, HIGH);
+        delay(200);
+        digitalWrite(blueLEDPin, LOW);
+        delay(200);
+      }
+    }
+  }
+  for (int i = 0; i <= (accessGrantedWhiteSize - 1); i++)  //Runs through all tag ID numbers registered in the array
+  {
+    if (accessGrantedWhite[i] == temp)  //If a tag is found then open/close the lock
+    {
+      Serial.print("Tag UID:");
+
+      lcd.setCursor(0, 0);
+
+      lcd.print("     CREDIT");
+
+      lcd.setCursor(0, 1);
+      Serial.println("Access Granted White");
+      granted = true;
+      if (locked == true)  //If the lock is closed then open it
+      {
+        locked = false;
+      } else if (locked == false)  //If the lock is open then close it
+      {
+        locked = true;
+      }
+      digitalWrite(whiteLEDPin, HIGH);  //White LED sequence
+      delay(200);
+      digitalWrite(whiteLEDPin, LOW);
+      delay(200);
+      digitalWrite(whiteLEDPin, HIGH);
+      delay(200);
+      digitalWrite(whiteLEDPin, LOW);
+      delay(200);
+    }
+  }
+  for (int i = 0; i <= (accessGrantedRedSize - 1); i++)  //Runs through all tag ID numbers registered in the array
+  {
+    Serial.print("Tag UID:");
+
+    lcd.setCursor(0, 0);
+
+    lcd.print("   Declined");
+
+    lcd.setCursor(0, 1);
+    if (accessGrantedRed[i] == temp)  //If a tag is found then open/close the lock
+    {
+      Serial.println("Access Granted Red");
+      granted = true;
+      if (locked == true)  //If the lock is closed then open it
+      {
+        locked = false;
+      } else if (locked == false)  //If the lock is open then close it
+      {
+        locked = true;
+      }
+      digitalWrite(redLEDPin, HIGH);  //Red LED sequence
+      delay(200);
+      digitalWrite(redLEDPin, LOW);
+      delay(200);
+      digitalWrite(redLEDPin, HIGH);
+      delay(200);
+      digitalWrite(redLEDPin, LOW);
+      delay(200);
+
+      reset_state();
+    }
+  }
+  //The restart state for the LCD is not working yet, Still trying to figure it out 
+  void reset_state() {
+    lcd.clear();
+
+    lcd.setCursor(0, 0);
+
+
+    lcd.print(" SCAN YOUR CARD");
+  }
+}
